@@ -79,10 +79,14 @@ function resolveCodeBlockLanguage(pre: Element): string | null {
   return declared && declared !== "text" ? declared : null;
 }
 
-function serializeCodeBlock(pre: Element): string {
-  const code = (pre.textContent ?? "").replace(/\n$/, "");
+export function serializeCodeBlockToMarkdown(source: string, language: string | null): string {
+  const code = source.replace(/\n$/, "");
   const fence = codeFenceFor(code);
-  return `${fence}${resolveCodeBlockLanguage(pre) ?? ""}\n${code}\n${fence}\n\n`;
+  return `${fence}${language ?? ""}\n${code}\n${fence}\n\n`;
+}
+
+function serializeCodeBlock(pre: Element): string {
+  return serializeCodeBlockToMarkdown(pre.textContent ?? "", resolveCodeBlockLanguage(pre));
 }
 
 function serializeTableCell(cell: Element): string {
@@ -393,12 +397,12 @@ export function chatMarkdownClipboardPayload(
     const ancestor = range.commonAncestorContainer;
     const ancestorElement =
       ancestor.nodeType === Node.ELEMENT_NODE ? (ancestor as Element) : ancestor.parentElement;
-    // A selection inside one rendered formula copies its whole TeX source.
-    const formula = ancestorElement
-      ?.closest("[data-markdown-math]")
+    // A selection inside one rendered formula or diagram copies its whole source.
+    const source = ancestorElement
+      ?.closest("[data-markdown-math], [data-markdown-mermaid]")
       ?.getAttribute("data-markdown-copy");
-    if (formula) {
-      texts.push(formula.trim());
+    if (source) {
+      texts.push(source.trim());
       htmls.push(sanitizedHtmlFrom(container));
       continue;
     }
