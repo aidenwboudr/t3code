@@ -56,7 +56,7 @@ async function renderDiagram(source: string, svg: string) {
 describe("MermaidDiagram math", () => {
   it("keeps MathML labels in the rendered diagram", async () => {
     await renderDiagram(
-      'flowchart LR; A["$$x^2$$"]',
+      "sequenceDiagram\nA->>B: $$x^2$$",
       diagramSvg("<msup><mi>x</mi><mn>2</mn></msup>"),
     );
 
@@ -68,7 +68,7 @@ describe("MermaidDiagram math", () => {
 
   it("still strips active content from math labels", async () => {
     await renderDiagram(
-      'flowchart LR; A["$$z^2$$"]',
+      "sequenceDiagram\nA->>B: $$z^2$$",
       diagramSvg(`
         <msup onclick="alert(1)"><mi href="javascript:alert(1)">z</mi><mn>2</mn></msup>
         <script>alert(1)</script>
