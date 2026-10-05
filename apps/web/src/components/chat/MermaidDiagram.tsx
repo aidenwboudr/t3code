@@ -52,7 +52,7 @@ function sanitizeMermaidSvg(svg: string): string {
     HTML_INTEGRATION_POINTS: { foreignobject: true },
     FORBID_ATTR: ["href", "xlink:href", "src", "srcset"],
     FORBID_TAGS: ["a", "img", "image", "script"],
-    USE_PROFILES: { svg: true, svgFilters: true, html: true },
+    USE_PROFILES: { svg: true, svgFilters: true, html: true, mathMl: true },
   });
 }
 
