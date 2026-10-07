@@ -6,14 +6,17 @@ release tag plus the commits below. `main` mirrors upstream and is not used.
 
 ## What it adds on top of the release
 
-| Upstream  | What                                                            | Status upstream (2026-10-07)                                |
-| --------- | --------------------------------------------------------------- | ----------------------------------------------------------- |
-| #15067    | Mermaid code fences render as diagrams                          | merged to `main` after v0.0.45, not yet in a stable release |
-| #14574    | LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) via KaTeX         | open                                                        |
-| #16198    | Math labels inside Mermaid diagrams                             | open                                                        |
-| #16221    | Finished Mermaid blocks render while a reply is still streaming | open                                                        |
-| #16249    | Copying a diagram copies its Mermaid source                     | open                                                        |
-| fork only | **Render math** defaults to on (upstream: off)                  | —                                                           |
+Base: `v0.0.46-nightly.20261007.2761`. Mermaid diagrams (#15067) are upstream since that tag,
+so the fork no longer carries them.
+
+| Upstream  | What                                                            | Status upstream (2026-10-07) |
+| --------- | --------------------------------------------------------------- | ---------------------------- |
+| #14574    | LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) via KaTeX         | open                         |
+| #16198    | Math labels inside Mermaid diagrams                             | open                         |
+| #16221    | Finished Mermaid blocks render while a reply is still streaming | open                         |
+| #16249    | Copying a diagram copies its Mermaid source                     | open                         |
+| fork only | **Render math** defaults to on (upstream: off)                  | —                            |
+| fork only | A code span after an unmatched dollar sign stays code           | not reported                 |
 
 Settings → Appearance → **Render math** still turns math off.
 
