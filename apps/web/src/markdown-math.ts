@@ -29,6 +29,7 @@ const BACKSLASH = 92;
 const RIGHT_PAREN = 41;
 const RIGHT_BRACKET = 93;
 const COMMA = 44;
+const GRAVE_ACCENT = 96;
 const CLOSERS: Partial<Record<number, number>> = { 40: RIGHT_PAREN, 91: RIGHT_BRACKET };
 // ponytail: an opener gives up after this many characters, which keeps a message
 // full of unmatched `$` close to linear. Raise it if real formulas hit the cap.
@@ -41,8 +42,9 @@ const isDigit = (code: Code) => code !== null && code >= 48 && code <= 57;
 
 /**
  * Tokenizes `$…$`, `$$…$$`, `\(…\)`, and `\[…\]` inside paragraphs. Code spans,
- * links, autolinks, and escapes keep their CommonMark meaning because the
- * parser reaches them first, and source positions stay those of the message.
+ * links, autolinks, and escapes keep their CommonMark meaning: the parser reaches
+ * them first, or a formula refuses to run into a backtick. Source positions stay
+ * those of the message.
  * Single-dollar math follows Pandoc so prices stay prose: it hugs its content,
  * stays on one line, and its closing `$` is not followed by a digit.
  */
@@ -113,8 +115,11 @@ function mathText(delimiter: typeof DOLLAR | typeof BACKSLASH): Construct {
         return dataCharacter(code);
       }
 
-      /** Consumes one character unconditionally; a backslash takes the next one along. */
+      /** Consumes one character; a backslash takes the next one along. */
       function dataCharacter(code: Code): State | undefined {
+        // A backtick would start a code span, which outranks math, so `$5 and
+        // `$HOME`` stays prose and code. TeX math has no use for backticks.
+        if (code === GRAVE_ACCENT) return nok(code);
         consume(code);
         return code === BACKSLASH ? escaped : inside;
       }
