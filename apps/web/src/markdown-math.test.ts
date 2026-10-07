@@ -74,6 +74,10 @@ describe("chat math parsing", () => {
   it("leaves code, escapes, links, and citations alone", () => {
     for (const [markdown, rendered] of [
       ["Use `$x$` in code.", "Use  in code."],
+      // A code span after an unmatched `$` still wins over math.
+      ["It costs $5 and $10, and `$HOME` stays code.", "It costs $5 and $10, and  stays code."],
+      ["Export $PATH, then `$HOME`.", "Export $PATH, then ."],
+      ["\\(a `\\)` b", "(a  b"],
       ["```\n$x$ \\(y\\)\n```", ""],
       ["Escaped \\$x\\$ stays.", "Escaped $x$ stays."],
       ["Escaped \\\\(x\\\\) stays.", "Escaped \\(x\\) stays."],
