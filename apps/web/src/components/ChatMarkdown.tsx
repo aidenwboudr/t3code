@@ -7,6 +7,7 @@ import {
 import {
   CheckIcon,
   ChevronRightIcon,
+  CodeIcon,
   CopyIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
@@ -24,6 +25,7 @@ import {
   PresentationIcon,
   SparklesIcon,
   TriangleAlertIcon,
+  WorkflowIcon,
   WrapTextIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -92,6 +94,7 @@ import remarkGfm from "remark-gfm";
 import type { Processor } from "unified";
 import { isWindowsAbsolutePath } from "@t3tools/shared/path";
 import { remarkGithubAlerts } from "../markdown-github-alerts";
+import { mathKind, mayContainMath, remarkChatMath } from "../markdown-math";
 import {
   artifactTemplateFromHastProperties,
   CODEX_ARTIFACT_TEMPLATE_HAST_PROPERTIES,
@@ -99,6 +102,7 @@ import {
   renderCodexFileCitationsAsMarkdown,
 } from "@t3tools/client-runtime/codex-markdown-directives";
 import { renderSkillInlineMarkdownChildren } from "./chat/SkillInlineText";
+import { MarkdownMath } from "./chat/MarkdownMath";
 import {
   resolveMarkdownMediaPreview,
   type ExpandedImagePreview,
@@ -141,6 +145,7 @@ import { GitHubIcon } from "./Icons";
 import { createIncrementalHighlightedDocument } from "../lib/incrementalHighlighting";
 import { HighlightedCodeLines } from "./chat/HighlightedCodeLines";
 import { RenderErrorBoundary } from "./RenderErrorBoundary";
+import { MermaidDiagram } from "./chat/MermaidDiagram";
 import { useTheme } from "../hooks/useTheme";
 import { getClientSettings, useClientSettings } from "../hooks/useSettings";
 import {
@@ -472,7 +477,12 @@ const CHAT_MARKDOWN_SANITIZE_SCHEMA = {
   attributes: {
     ...defaultSchema.attributes,
     "*": (defaultSchema.attributes?.["*"] ?? []).filter((attribute) => attribute !== "title"),
-    code: [...(defaultSchema.attributes?.code ?? []), "dataCodeMeta", "dataInlineCode"],
+    // Fence languages plus the two math classes `remarkChatMath` emits.
+    code: [
+      ["className", /^language-./, "math-inline", "math-display"],
+      "dataCodeMeta",
+      "dataInlineCode",
+    ],
     blockquote: [...(defaultSchema.attributes?.blockquote ?? []), "dataAlert"],
     div: [...(defaultSchema.attributes?.div ?? []), ...CODEX_ARTIFACT_TEMPLATE_HAST_PROPERTIES],
     a: [...(defaultSchema.attributes?.a ?? []), "dataPullRequestAutolink"],
@@ -510,6 +520,22 @@ const CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS = [
   remarkPreserveCodeMeta,
   remarkNormalizeLinksAndTagInlineCode,
 ] satisfies NonNullable<ReactMarkdownOptions["remarkPlugins"]>;
+
+const CHAT_MARKDOWN_MATH_REMARK_PLUGINS = [remarkChatMath, ...CHAT_MARKDOWN_REMARK_PLUGINS];
+
+const CHAT_MARKDOWN_MATH_REMARK_PLUGINS_WITH_BREAKS = [
+  remarkChatMath,
+  ...CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS,
+];
+
+function chatMarkdownRemarkPlugins(lineBreaks: boolean, math: boolean) {
+  if (math) {
+    return lineBreaks
+      ? CHAT_MARKDOWN_MATH_REMARK_PLUGINS_WITH_BREAKS
+      : CHAT_MARKDOWN_MATH_REMARK_PLUGINS;
+  }
+  return lineBreaks ? CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS : CHAT_MARKDOWN_REMARK_PLUGINS;
+}
 
 const CHAT_MARKDOWN_REHYPE_PLUGINS = [
   rehypeRaw,
@@ -591,7 +617,11 @@ function extractPreCodeMeta(node: unknown): string | undefined {
   return typeof meta === "string" && meta.trim().length > 0 ? meta.trim() : undefined;
 }
 
-function isClosedCodeFence(node: ReactMarkdownExtraProps["node"], text: string): boolean {
+function isClosedCodeFence(
+  node: ReactMarkdownExtraProps["node"],
+  text: string,
+  code: string,
+): boolean {
   const start = node?.position?.start.offset;
   const end = node?.position?.end.offset;
   if (start === undefined || end === undefined) return false;
@@ -604,7 +634,10 @@ function isClosedCodeFence(node: ReactMarkdownExtraProps["node"], text: string):
     opening !== undefined &&
     closing !== undefined &&
     opening[0] === closing[0] &&
-    closing.length >= opening.length
+    closing.length >= opening.length &&
+    // A real closer is excluded from the parsed code. Invalid, overindented
+    // markers remain in it, so the source must have an extra fence line.
+    source.split(/\r\n|\r|\n/).length > code.split(/\r\n|\r|\n/).length
   );
 }
 
@@ -975,6 +1008,9 @@ function MarkdownCodeBlock({
   theme,
   onRunShellCommand,
   isStreaming,
+  leadingActions,
+  canWrap = true,
+  diagram = false,
   children,
 }: {
   code: string;
@@ -983,6 +1019,10 @@ function MarkdownCodeBlock({
   theme: "light" | "dark";
   onRunShellCommand?: ((command: string) => void) | undefined;
   isStreaming: boolean;
+  leadingActions?: ReactNode;
+  canWrap?: boolean;
+  /** Renders content instead of code, with actions below it like tables. */
+  diagram?: boolean;
   children: ReactNode;
 }) {
   const [copied, setCopied] = useState(false);
@@ -1040,6 +1080,37 @@ function MarkdownCodeBlock({
     [],
   );
 
+  const copyButton = (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost-muted"
+            size="icon-xs"
+            onClick={handleCopy}
+            aria-label={copyLabel}
+          />
+        }
+      >
+        {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
+      </TooltipTrigger>
+      <TooltipPopup side="top">{copyLabel}</TooltipPopup>
+    </Tooltip>
+  );
+
+  if (diagram) {
+    return (
+      <div className="my-[0.65rem]" data-language={language}>
+        {children}
+        <div className="mt-0.5 flex items-center justify-between select-none">
+          {leadingActions}
+          {copyButton}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="chat-markdown-codeblock my-[0.65rem] overflow-hidden rounded-lg border border-border/70 bg-secondary leading-snug dark:border-transparent dark:bg-input/32"
@@ -1055,23 +1126,26 @@ function MarkdownCodeBlock({
           />
         </span>
         <span className="flex items-center gap-0.5" role="toolbar" aria-label="Code block actions">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  type="button"
-                  variant={wrapped ? "secondary" : "ghost-muted"}
-                  size="icon-xs"
-                  aria-pressed={wrapped}
-                  onClick={() => setWrapped((value) => !value)}
-                  aria-label={wrapLabel}
-                />
-              }
-            >
-              <WrapTextIcon className="size-3" />
-            </TooltipTrigger>
-            <TooltipPopup side="top">{wrapLabel}</TooltipPopup>
-          </Tooltip>
+          {leadingActions}
+          {canWrap ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant={wrapped ? "secondary" : "ghost-muted"}
+                    size="icon-xs"
+                    aria-pressed={wrapped}
+                    onClick={() => setWrapped((value) => !value)}
+                    aria-label={wrapLabel}
+                  />
+                }
+              >
+                <WrapTextIcon className="size-3" />
+              </TooltipTrigger>
+              <TooltipPopup side="top">{wrapLabel}</TooltipPopup>
+            </Tooltip>
+          ) : null}
           {canRun ? (
             <Tooltip>
               <TooltipTrigger
@@ -1090,6 +1164,47 @@ function MarkdownCodeBlock({
               <TooltipPopup side="top">Run in terminal</TooltipPopup>
             </Tooltip>
           ) : null}
+          {copyButton}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Completed Mermaid fences render while the response continues. Unfinished
+ * fences and the code toggle keep the highlighted source.
+ */
+function MarkdownMermaidCodeBlock({
+  code,
+  fenceTitle,
+  theme,
+  isStreaming,
+  onExpand,
+  children,
+}: {
+  code: string;
+  fenceTitle: string | null;
+  theme: "light" | "dark";
+  isStreaming: boolean;
+  onExpand: (imageUrl: string) => void;
+  children: ReactNode;
+}) {
+  const [showCode, setShowCode] = useState(false);
+  const showDiagram = !showCode && !isStreaming && code.trim().length > 0;
+  const toggleLabel = showCode ? "Show diagram" : "Show code";
+  return (
+    <MarkdownCodeBlock
+      code={code}
+      language="mermaid"
+      fenceTitle={fenceTitle}
+      theme={theme}
+      isStreaming={isStreaming}
+      canWrap={!showDiagram}
+      diagram={showDiagram}
+      leadingActions={
+        isStreaming ? null : (
           <Tooltip>
             <TooltipTrigger
               render={
@@ -1097,19 +1212,34 @@ function MarkdownCodeBlock({
                   type="button"
                   variant="ghost-muted"
                   size="icon-xs"
-                  onClick={handleCopy}
-                  aria-label={copyLabel}
+                  onClick={() => setShowCode((value) => !value)}
+                  aria-label={toggleLabel}
                 />
               }
             >
-              {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
+              {showCode ? <WorkflowIcon className="size-3" /> : <CodeIcon className="size-3" />}
             </TooltipTrigger>
-            <TooltipPopup side="top">{copyLabel}</TooltipPopup>
+            <TooltipPopup side="top">{toggleLabel}</TooltipPopup>
           </Tooltip>
-        </span>
-      </div>
-      {children}
-    </div>
+        )
+      }
+    >
+      {showDiagram ? (
+        <RenderErrorBoundary resetKeys={[code, theme]} fallback={children}>
+          <Suspense
+            fallback={
+              <pre className="invisible" aria-hidden>
+                {code}
+              </pre>
+            }
+          >
+            <MermaidDiagram source={code} theme={theme} onExpand={onExpand} />
+          </Suspense>
+        </RenderErrorBoundary>
+      ) : (
+        children
+      )}
+    </MarkdownCodeBlock>
   );
 }
 
@@ -3300,7 +3430,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
     return <MarkdownDetails open={detailsOpen}>{children}</MarkdownDetails>;
   },
   pre: function MarkdownPre({ node, children, ...props }) {
-    const { resolvedTheme, diffThemeName, isStreaming, onRunShellCommand, text } = use(
+    const { resolvedTheme, diffThemeName, expandMedia, isStreaming, onRunShellCommand, text } = use(
       ChatMarkdownRendererContext,
     );
     const codeBlock = extractCodeBlock(children);
@@ -3310,6 +3440,42 @@ const CHAT_MARKDOWN_COMPONENTS = {
 
     const language = extractFenceLanguage(codeBlock.className);
     const fenceTitle = extractFenceTitle(extractPreCodeMeta(node));
+    const highlightedCode = (
+      <RenderErrorBoundary
+        resetKeys={[codeBlock.code, language, diffThemeName, isStreaming]}
+        fallback={<pre {...props}>{children}</pre>}
+      >
+        {/* Reserve the block's height but stay hidden until Shiki has colored
+           it, so plain text never flashes before the highlighted version. */}
+        <Suspense
+          fallback={
+            <pre {...props} className="invisible" aria-hidden>
+              {children}
+            </pre>
+          }
+        >
+          <SuspenseShikiCodeBlock
+            className={codeBlock.className}
+            code={codeBlock.code}
+            themeName={diffThemeName}
+            isStreaming={isStreaming}
+          />
+        </Suspense>
+      </RenderErrorBoundary>
+    );
+    if (language === "mermaid") {
+      return (
+        <MarkdownMermaidCodeBlock
+          code={codeBlock.code}
+          fenceTitle={fenceTitle}
+          theme={resolvedTheme}
+          isStreaming={isStreaming && !isClosedCodeFence(node, text, codeBlock.code)}
+          onExpand={(src) => expandMedia({ images: [{ src, name: "Mermaid diagram" }], index: 0 })}
+        >
+          {highlightedCode}
+        </MarkdownMermaidCodeBlock>
+      );
+    }
     return (
       <MarkdownCodeBlock
         code={codeBlock.code}
@@ -3317,36 +3483,29 @@ const CHAT_MARKDOWN_COMPONENTS = {
         fenceTitle={fenceTitle}
         theme={resolvedTheme}
         onRunShellCommand={
-          onRunShellCommand && !isStreaming && isClosedCodeFence(node, text)
+          onRunShellCommand && !isStreaming && isClosedCodeFence(node, text, codeBlock.code)
             ? onRunShellCommand
             : undefined
         }
         isStreaming={isStreaming}
       >
-        <RenderErrorBoundary
-          resetKeys={[codeBlock.code, language, diffThemeName, isStreaming]}
-          fallback={<pre {...props}>{children}</pre>}
-        >
-          {/* Reserve the block's height but stay hidden until Shiki has colored
-              it, so plain text never flashes before the highlighted version. */}
-          <Suspense
-            fallback={
-              <pre {...props} className="invisible" aria-hidden>
-                {children}
-              </pre>
-            }
-          >
-            <SuspenseShikiCodeBlock
-              className={codeBlock.className}
-              code={codeBlock.code}
-              themeName={diffThemeName}
-              isStreaming={isStreaming}
-            />
-          </Suspense>
-        </RenderErrorBoundary>
+        {highlightedCode}
       </MarkdownCodeBlock>
     );
   },
+} satisfies Components;
+
+const MarkdownCodeOrMath: NonNullable<Components["code"]> = (props) => {
+  const math = mathKind(props.className);
+  if (!math) return CHAT_MARKDOWN_COMPONENTS.code(props);
+  return <MarkdownMath tex={nodeToPlainText(props.children)} display={math === "display"} />;
+};
+
+// Only messages parsed with math enabled can typeset, so raw HTML carrying the
+// math classes stays an ordinary code element while the setting is off.
+const CHAT_MARKDOWN_MATH_COMPONENTS = {
+  ...CHAT_MARKDOWN_COMPONENTS,
+  code: MarkdownCodeOrMath,
 } satisfies Components;
 
 function ChatMarkdown({
@@ -3369,13 +3528,15 @@ function ChatMarkdown({
     props.isStreaming === true &&
     extraRemarkPlugins.length === 0 &&
     /(?:^|\n) {0,3}(?:`{3}|~{3})/.test(text);
+  const math =
+    useClientSettings((settings) => settings.mathRenderingEnabled) && mayContainMath(text);
   const remarkPlugins = useMemo(
     () => [
-      ...(lineBreaks ? CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS : CHAT_MARKDOWN_REMARK_PLUGINS),
+      ...chatMarkdownRemarkPlugins(lineBreaks, math),
       ...extraRemarkPlugins,
       ...(incrementalParsing ? [createIncrementalMarkdownPlugin()] : []),
     ],
-    [extraRemarkPlugins, incrementalParsing, lineBreaks],
+    [extraRemarkPlugins, incrementalParsing, lineBreaks, math],
   );
 
   // react-markdown converts unparsed HTML nodes to text when skipHtml is false.
@@ -3397,7 +3558,7 @@ function ChatMarkdown({
           remarkPlugins={remarkPlugins}
           rehypePlugins={parseRawHtml ? CHAT_MARKDOWN_REHYPE_PLUGINS : undefined}
           skipHtml={false}
-          components={CHAT_MARKDOWN_COMPONENTS}
+          components={math ? CHAT_MARKDOWN_MATH_COMPONENTS : CHAT_MARKDOWN_COMPONENTS}
           urlTransform={markdownUrlTransform}
         >
           {text}
