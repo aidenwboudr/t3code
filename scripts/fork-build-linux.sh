@@ -13,5 +13,7 @@ set -a; . "$config"; set +a
 export T3CODE_DESKTOP_UPDATE_REPOSITORY=aidenwboudr/t3code
 export T3CODE_DESKTOP_VERSION="$version"
 export T3CODE_DESKTOP_OUTPUT_DIR="${T3CODE_DESKTOP_OUTPUT_DIR:-$PWD/release}"
+# Start empty: a leftover latest-linux.yml from an older build would ship with this one.
+rm -rf "$T3CODE_DESKTOP_OUTPUT_DIR"
 pnpm install --frozen-lockfile
 pnpm dist:desktop:linux
