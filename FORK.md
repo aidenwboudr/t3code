@@ -19,9 +19,10 @@ Settings → Appearance → **Render math** still turns math off.
 
 ## Build and install (Linux AppImage)
 
-Needs Node 24, pnpm 11 (corepack), cargo and ImageMagick. `.env.local` holds the public
-client config the official builds ship with (Clerk key, relay URL); copy it out of an
-official release's `app.asar` if it is missing.
+Needs Node 24, pnpm 11 (corepack), cargo and ImageMagick. The script reads the public
+client config the official builds ship with (Clerk key, relay URL, `T3CODE_*` names) from
+`~/.config/t3code-fork/public.env`; copy the values out of an official release's
+`app.asar` if it is missing. Don't put them in `.env.local`: the web tests read that file.
 
 ```sh
 scripts/fork-build-linux.sh 0.0.45   # version to stamp; writes release/*.AppImage
