@@ -16,4 +16,11 @@ export T3CODE_DESKTOP_OUTPUT_DIR="${T3CODE_DESKTOP_OUTPUT_DIR:-$PWD/release}"
 # Start empty: a leftover latest-linux.yml from an older build would ship with this one.
 rm -rf "$T3CODE_DESKTOP_OUTPUT_DIR"
 pnpm install --frozen-lockfile
+# The repo keeps a placeholder version; upstream's release CI stamps the real one into the
+# server, web, desktop and contracts packages before building. Without it the app's own
+# server and web client report the placeholder (v0.1.0-aiden.1 said 0.0.45), which breaks
+# T3's client/server version checks. Put the placeholder back afterwards.
+stamped=(apps/server/package.json apps/desktop/package.json apps/web/package.json packages/contracts/package.json)
+trap 'git checkout -- "${stamped[@]}"' EXIT
+node scripts/update-release-package-versions.ts "$version"
 pnpm dist:desktop:linux
