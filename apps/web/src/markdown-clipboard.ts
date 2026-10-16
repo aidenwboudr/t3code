@@ -397,12 +397,12 @@ export function chatMarkdownClipboardPayload(
     const ancestor = range.commonAncestorContainer;
     const ancestorElement =
       ancestor.nodeType === Node.ELEMENT_NODE ? (ancestor as Element) : ancestor.parentElement;
-    // A selection within a diagram copies its complete Mermaid source.
-    const diagramSource = ancestorElement
-      ?.closest("[data-markdown-mermaid]")
+    // A selection inside one rendered formula or diagram copies its whole source.
+    const source = ancestorElement
+      ?.closest("[data-markdown-math], [data-markdown-mermaid]")
       ?.getAttribute("data-markdown-copy");
-    if (diagramSource) {
-      texts.push(diagramSource.trim());
+    if (source) {
+      texts.push(source.trim());
       htmls.push(sanitizedHtmlFrom(container));
       continue;
     }
