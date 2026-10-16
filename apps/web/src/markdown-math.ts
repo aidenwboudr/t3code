@@ -29,7 +29,9 @@ const BACKSLASH = 92;
 const RIGHT_PAREN = 41;
 const RIGHT_BRACKET = 93;
 const COMMA = 44;
-const GRAVE_ACCENT = 96;
+const BACKTICK = 96;
+const COLON = 58;
+const SLASH = 47;
 const CLOSERS: Partial<Record<number, number>> = { 40: RIGHT_PAREN, 91: RIGHT_BRACKET };
 // ponytail: an opener gives up after this many characters, which keeps a message
 // full of unmatched `$` close to linear. Raise it if real formulas hit the cap.
@@ -42,8 +44,8 @@ const isDigit = (code: Code) => code !== null && code >= 48 && code <= 57;
 
 /**
  * Tokenizes `$…$`, `$$…$$`, `\(…\)`, and `\[…\]` inside paragraphs. Code spans,
- * links, autolinks, and escapes keep their CommonMark meaning: the parser reaches
- * them first, or a formula refuses to run into a backtick. Source positions stay
+ * links, autolinks, and escapes keep their CommonMark meaning, because the parser
+ * reaches them first or a formula refuses to span them. Source positions stay
  * those of the message.
  * Single-dollar math follows Pandoc so prices stay prose: it hugs its content,
  * stays on one line, and its closing `$` is not followed by a digit.
@@ -64,6 +66,7 @@ function mathText(delimiter: typeof DOLLAR | typeof BACKSLASH): Construct {
       let closer = DOLLAR;
       let length = 0;
       let last: Code = null;
+      let beforeLast: Code = null;
       // `\[1\]` is a citation, not an equation.
       let citation = true;
       const closing: Construct = { partial: true, tokenize: tokenizeClosing };
@@ -117,9 +120,9 @@ function mathText(delimiter: typeof DOLLAR | typeof BACKSLASH): Construct {
 
       /** Consumes one character; a backslash takes the next one along. */
       function dataCharacter(code: Code): State | undefined {
-        // A backtick would start a code span, which outranks math, so `$5 and
-        // `$HOME`` stays prose and code. TeX math has no use for backticks.
-        if (code === GRAVE_ACCENT) return nok(code);
+        // Code spans and URLs outrank math, and TeX has no use for a backtick or `://`.
+        if (code === BACKTICK) return nok(code);
+        if (code === SLASH && last === SLASH && beforeLast === COLON) return nok(code);
         consume(code);
         return code === BACKSLASH ? escaped : inside;
       }
@@ -149,6 +152,7 @@ function mathText(delimiter: typeof DOLLAR | typeof BACKSLASH): Construct {
       function consume(code: Code) {
         if (!isWhitespace(code) && !isDigit(code) && code !== COMMA) citation = false;
         effects.consume(code);
+        beforeLast = last;
         last = code;
         length++;
       }

@@ -6,14 +6,17 @@ release tag plus the commits below. `main` mirrors upstream and is not used.
 
 ## What it adds on top of the release
 
-| Upstream  | What                                                            | Status upstream (2026-10-07)                                |
-| --------- | --------------------------------------------------------------- | ----------------------------------------------------------- |
-| #15067    | Mermaid code fences render as diagrams                          | merged to `main` after v0.0.45, not yet in a stable release |
-| #14574    | LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) via KaTeX         | open                                                        |
-| #16198    | Math labels inside Mermaid diagrams                             | open                                                        |
-| #16221    | Finished Mermaid blocks render while a reply is still streaming | open                                                        |
-| #16249    | Copying a diagram copies its Mermaid source                     | open                                                        |
-| fork only | **Render math** defaults to on (upstream: off)                  | —                                                           |
+| Upstream  | What                                                            | Status upstream (2026-10-16)                   |
+| --------- | --------------------------------------------------------------- | ---------------------------------------------- |
+| #14574    | LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) via KaTeX         | open; carried at head `2d2a16f`                |
+| #16198    | Math labels inside Mermaid diagrams                             | open; carried at head `16f2647`                |
+| #18308    | Finished Mermaid blocks render while a reply is still streaming | open (resubmits closed #16221); head `100f219` |
+| #16249    | Copying a diagram copies its Mermaid source                     | open; carried at head `85382ed`                |
+| fork only | **Render math** defaults to on (upstream: off)                  | —                                              |
+
+Base: **v0.1.0**. Mermaid diagrams themselves (#15067) shipped upstream in v0.1.0, so the
+fork no longer carries them. The fix that keeps `` `$HOME` `` as code after an unmatched `$`
+started here and is now part of #14574.
 
 Settings → Appearance → **Render math** still turns math off.
 
@@ -25,7 +28,7 @@ client config the official builds ship with (Clerk key, relay URL, `T3CODE_*` na
 `app.asar` if it is missing. Don't put them in `.env.local`: the web tests read that file.
 
 ```sh
-scripts/fork-build-linux.sh 0.0.45   # version to stamp; writes release/*.AppImage
+scripts/fork-build-linux.sh 0.1.0    # version to stamp; writes release/*.AppImage
 ```
 
 The build points the in-app updater at this fork's GitHub releases
@@ -34,10 +37,12 @@ fork release by attaching the AppImage plus `latest-linux.yml` from the output d
 
 ## Moving to a new upstream release
 
-1. `git fetch upstream --tags`
-2. `git switch -c claude/rebase-vX aiden && git rebase --onto vX <old tag> claude/rebase-vX`,
-   dropping any commit upstream has since merged.
-3. Build, check a thread with a diagram and a formula, then PR into `aiden`.
+1. `git fetch upstream --tags` and check which PRs above the new tag already contains.
+2. `git switch -c claude/rebase-vX vX`, then apply each still-open PR's current head
+   (`git fetch upstream pull/N/head`, `git diff upstream/main...FETCH_HEAD | git apply -3`)
+   and re-apply the fork-only commit.
+3. Test (`apps/web`: `pnpm run typecheck`, `pnpm run test`), build, check a thread with a
+   diagram and a formula, then PR into `aiden`.
 
 Once upstream ships math and the Mermaid fixes in a stable release, this fork has
 nothing left to add: switch back to the official app.
