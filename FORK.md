@@ -1,48 +1,32 @@
-# aidenwboudr/t3code
+# aidenwboudr/t3code (retired)
 
-A personal fork of [pingdotgg/t3code](https://github.com/pingdotgg/t3code) that renders
-Mermaid diagrams and LaTeX math in chat. Branch `aiden` is the fork's base: an upstream
-release tag plus the commits below. `main` mirrors upstream and is not used.
+A personal fork of [pingdotgg/t3code](https://github.com/pingdotgg/t3code) that rendered
+Mermaid diagrams and LaTeX math in chat. **It was retired on 2026-10-21**: upstream v0.1.1
+renders both itself, so the laptop runs the official app again and gets upstream updates.
+The last fork release is `v0.1.0-aiden.1`, and no more will be published.
 
-## What it adds on top of the release
+## Why retiring was safe
 
-| Upstream  | What                                                            | Status upstream (2026-10-16)                   |
-| --------- | --------------------------------------------------------------- | ---------------------------------------------- |
-| #14574    | LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) via KaTeX         | open; carried at head `2d2a16f`                |
-| #16198    | Math labels inside Mermaid diagrams                             | open; carried at head `16f2647`                |
-| #18308    | Finished Mermaid blocks render while a reply is still streaming | open (resubmits closed #16221); head `100f219` |
-| #16249    | Copying a diagram copies its Mermaid source                     | open; carried at head `85382ed`                |
-| fork only | **Render math** defaults to on (upstream: off)                  | —                                              |
+Everything the fork carried on top of v0.1.0 is in upstream v0.1.1:
 
-Base: **v0.1.0**. Mermaid diagrams themselves (#15067) shipped upstream in v0.1.0, so the
-fork no longer carries them. The fix that keeps `` `$HOME` `` as code after an unmatched `$`
-started here and is now part of #14574.
+| Upstream  | What                                                            | Landed in v0.1.1 as                 |
+| --------- | --------------------------------------------------------------- | ----------------------------------- |
+| #14574    | LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) via KaTeX         | superseded by #18735 (merged 10-19) |
+| #16198    | Math labels inside Mermaid diagrams                             | merged 10-18                        |
+| #18308    | Finished Mermaid blocks render while a reply is still streaming | merged 10-19                        |
+| #16249    | Copying a diagram copies its Mermaid source                     | merged 10-20                        |
+| fork only | `` `$HOME` `` stays code after an unmatched `$`                 | covered by #18735's own tests       |
+| fork only | **Render math** defaults to on                                  | not upstream: math is opt-in        |
 
-Settings → Appearance → **Render math** still turns math off.
+The upstream v0.1.1 server bundle passed the same end-to-end render check the fork used
+(4 formulas, 2 diagrams, `` `$HOME` `` as code, prices as text) with Render math turned on.
 
-## Build and install (Linux AppImage)
+Math is off by default upstream: turn on Settings → Appearance → **Render math**.
 
-Needs Node 24, pnpm 11 (corepack), cargo and ImageMagick. The script reads the public
-client config the official builds ship with (Clerk key, relay URL, `T3CODE_*` names) from
-`~/.config/t3code-fork/public.env`; copy the values out of an official release's
-`app.asar` if it is missing. Don't put them in `.env.local`: the web tests read that file.
+## Going back to a fork
 
-```sh
-scripts/fork-build-linux.sh 0.1.0    # version to stamp; writes release/*.AppImage
-```
-
-The build points the in-app updater at this fork's GitHub releases
-(`T3CODE_DESKTOP_UPDATE_REPOSITORY`), so upstream releases never replace it. Publish a
-fork release by attaching the AppImage plus `latest-linux.yml` from the output dir.
-
-## Moving to a new upstream release
-
-1. `git fetch upstream --tags` and check which PRs above the new tag already contains.
-2. `git switch -c claude/rebase-vX vX`, then apply each still-open PR's current head
-   (`git fetch upstream pull/N/head`, `git diff upstream/main...FETCH_HEAD | git apply -3`)
-   and re-apply the fork-only commit.
-3. Test (`apps/web`: `pnpm run typecheck`, `pnpm run test`), build, check a thread with a
-   diagram and a formula, then PR into `aiden`.
-
-Once upstream ships math and the Mermaid fixes in a stable release, this fork has
-nothing left to add: switch back to the official app.
+`scripts/fork-build-linux.sh <version>` still builds a fork AppImage whose updater reads
+this repo's releases. To revive the fork, rebase `aiden` onto the upstream tag, re-apply
+what upstream lacks, build, and publish `v<version>-aiden.1` with the AppImage plus
+`latest-linux.yml`. The build needs Node 24, pnpm 11 (corepack), cargo, ImageMagick, and
+the public client config in `~/.config/t3code-fork/public.env`.
