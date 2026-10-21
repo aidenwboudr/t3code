@@ -2,7 +2,7 @@
 
 A personal fork of [pingdotgg/t3code](https://github.com/pingdotgg/t3code) that rendered
 Mermaid diagrams and LaTeX math in chat. **It was retired on 2026-10-21**: upstream v0.1.1
-renders both itself, so the laptop runs the official app again and gets upstream updates.
+renders both itself, so the laptop goes back to the official app and its upstream updates.
 The last fork release is `v0.1.0-aiden.1`, and no more will be published.
 
 ## Why retiring was safe
